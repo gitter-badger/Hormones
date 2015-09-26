@@ -10,10 +10,12 @@ CREATE TABLE IF NOT EXISTS blood (
 	tags VARCHAR(1023) DEFAULT ',', -- for convenience of user searching, e.g. INSTR(tags, ',author:shoghicp,')
 	json VARCHAR(4095) DEFAULT '{}' -- JSON-formatted miscellaneous data
 );
-CREATE TABLE tissues (
+CREATE TABLE IF NOT EXISTS tissues (
 	id CHAR(36) PRIMARY KEY,
 	organ INT NOT NULL,
 	laston INT,
 	usedslots SMALLINT,
-	maxslots SMALLINT
+	maxslots SMALLINT,
+	ip VARCHAR(68),
+	port SMALLINT UNSIGNED
 );

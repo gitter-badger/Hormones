@@ -15,11 +15,16 @@
 
 namespace Hormones;
 
+use Hormones\Lymph\LymphResult;
+use Hormones\Lymph\LymphVessel;
 use mysqli;
 use Phar;
 use pocketmine\plugin\PluginBase;
+use pocketmine\Server;
 
 class HormonesPlugin extends PluginBase{
+	const HORMONES_DB = "hormones.db";
+	/** @var array */
 	private $mysqlDetails;
 	/** @var int */
 	private $organ;
@@ -29,12 +34,20 @@ class HormonesPlugin extends PluginBase{
 	private $serverID;
 	/** @var int */
 	private $maxPlayerCnt;
+	/** @var LymphResult */
+	private $lymphResult;
+	/**
+	 * @internal
+	 */
 	public function onLoad(){
 		if(!is_file($this->getDataFolder() . "config.yml")){
 			$this->getLogger()->warning("You are strongly recommended to run the phar file " . Phar::running(false) . " to configure Hormones.");
 			$this->getLogger()->warning("You can do so by running this in your COMMAND TERMINAL (not the PocketMine console!): `" . PHP_BINARY . " " . Phar::running(false) . "`");
 		}
 	}
+	/**
+	 * @internal
+	 */
 	public function onEnable(){
 		$this->getLogger()->debug("Loading config...");
 		$this->saveDefaultConfig();
@@ -46,7 +59,7 @@ class HormonesPlugin extends PluginBase{
 		]);
 		$this->getLogger()->debug("Testing Heart connection...");
 		/** @noinspection PhpUsageOfSilenceOperatorInspection */
-		$conn = @$this->getMysqli($this->mysqlDetails);
+		$conn = @self::getMysqli($this->mysqlDetails);
 		if($conn->connect_error){
 			$this->getLogger()->critical("Could not connect to MySQL database: " . $conn->connect_error);
 			$this->getServer()->getPluginManager()->disablePlugin($this);
@@ -96,8 +109,27 @@ class HormonesPlugin extends PluginBase{
 		$this->maxPlayerCnt = (int) $this->getConfig()->getNested("localize.maxPlayers", 20);
 		$playerCnt = count($this->getServer()->getOnlinePlayers());
 		$conn->query("INSERT INTO tissues (id, organ, laston, usedslots, maxslots) VALUES ('{$conn->escape_string($this->serverID)}', 1 << $this->organ, unix_timestamp(), $playerCnt, $this->maxPlayerCnt)");
+
+		$this->getServer()->getScheduler()->scheduleRepeatingTask(new LymphVessel($this), 1);
+
+		$this->getLogger()->info("Startup completed.");
 	}
-	public function getMysqli(array $mysqlDetails){
+	/**
+	 * @internal
+	 */
+	public function onDisable(){
+		if(isset($this->mysqlDetails)){
+			/** @noinspection PhpUsageOfSilenceOperatorInspection */
+			$db = @self::getMysqli($this->mysqlDetails);
+			$db->query("UPDATE tissues SET laston=0 WHERE id='{$this->getServer()->getServerUniqueId()}'");
+			$db->close();
+		}
+	}
+	/**
+	 * @param array $mysqlDetails
+	 * @return mysqli
+	 */
+	public static function getMysqli(array $mysqlDetails){
 		return new mysqli(
 			isset($mysqlDetails["hostname"]) ? $mysqlDetails["hostname"] : "127.0.0.1",
 			isset($mysqlDetails["hostname"]) ? $mysqlDetails["username"] : "root",
@@ -105,5 +137,52 @@ class HormonesPlugin extends PluginBase{
 			isset($mysqlDetails["hostname"]) ? $mysqlDetails["schema"] : "hormones",
 			isset($mysqlDetails["hostname"]) ? $mysqlDetails["port"] : 3306
 		);
+	}
+	/**
+	 * @return array
+	 */
+	public function getMysqlDetails(){
+		return $this->mysqlDetails;
+	}
+	/**
+	 * @return int
+	 */
+	public function getOrgan(){
+		return $this->organ;
+	}
+	/**
+	 * @return string
+	 */
+	public function getOrganName(){
+		return $this->organName;
+	}
+	/**
+	 * @return int
+	 */
+	public function getMaxPlayerCount(){
+		return $this->maxPlayerCnt;
+	}
+	/**
+	 * @return string
+	 */
+	public function getServerID(){
+		return $this->serverID;
+	}
+	public function getLastLymphResult(){
+		return $this->lymphResult;
+	}
+	/**
+	 * @param LymphResult $result
+	 * @internal
+	 */
+	public function refreshLymphResult(LymphResult $result){
+		$this->lymphResult = $result;
+	}
+	/**
+	 * @param Server $server
+	 * @return HormonesPlugin|null
+	 */
+	public static function getInstance(Server $server){
+		return $server->getPluginManager()->getPlugin("Hormones");
 	}
 }
