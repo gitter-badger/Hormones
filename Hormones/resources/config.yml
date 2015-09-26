@@ -1,0 +1,11 @@
+---
+mysql:
+  hostname: 127.0.0.1
+  username: root
+  password: ""
+  schema: hormones
+  port: 3306
+localize:
+  organ: 0
+  maxPlayers: 20
+...
