@@ -27,6 +27,8 @@ class HormonesPlugin extends PluginBase{
 	private $organName;
 	/** @var string */
 	private $serverID;
+	/** @var int */
+	private $maxPlayerCnt;
 	public function onLoad(){
 		if(!is_file($this->getDataFolder() . "config.yml")){
 			$this->getLogger()->warning("You are strongly recommended to run the phar file " . Phar::running(false) . " to configure Hormones.");
@@ -44,13 +46,7 @@ class HormonesPlugin extends PluginBase{
 		]);
 		$this->getLogger()->debug("Testing Heart connection...");
 		/** @noinspection PhpUsageOfSilenceOperatorInspection */
-		$conn = @new mysqli(
-			isset($this->mysqlDetails["hostname"]) ? $this->mysqlDetails["hostname"] : "127.0.0.1",
-			isset($this->mysqlDetails["hostname"]) ? $this->mysqlDetails["username"] : "root",
-			isset($this->mysqlDetails["hostname"]) ? $this->mysqlDetails["password"] : "",
-			isset($this->mysqlDetails["hostname"]) ? $this->mysqlDetails["schema"] : "hormones",
-			isset($this->mysqlDetails["hostname"]) ? $this->mysqlDetails["port"] : 3306
-		);
+		$conn = @$this->getMysqli($this->mysqlDetails);
 		if($conn->connect_error){
 			$this->getLogger()->critical("Could not connect to MySQL database: " . $conn->connect_error);
 			$this->getServer()->getPluginManager()->disablePlugin($this);
@@ -97,7 +93,17 @@ class HormonesPlugin extends PluginBase{
 		$this->getLogger()->info("Starting tissue " . ($this->serverID = $this->getServer()->getServerUniqueId()) . " of organ '$organName' (#$organ)...");
 		$this->organ = $organ;
 		$this->organName = $organName;
+		$this->maxPlayerCnt = (int) $this->getConfig()->getNested("localize.maxPlayers", 20);
 		$playerCnt = count($this->getServer()->getOnlinePlayers());
 		$conn->query("INSERT INTO tissues (id, organ, laston, usedslots, maxslots) VALUES ('{$conn->escape_string($this->serverID)}', 1 << $this->organ, unix_timestamp(), $playerCnt, $this->maxPlayerCnt)");
+	}
+	public function getMysqli(array $mysqlDetails){
+		return new mysqli(
+			isset($mysqlDetails["hostname"]) ? $mysqlDetails["hostname"] : "127.0.0.1",
+			isset($mysqlDetails["hostname"]) ? $mysqlDetails["username"] : "root",
+			isset($mysqlDetails["hostname"]) ? $mysqlDetails["password"] : "",
+			isset($mysqlDetails["hostname"]) ? $mysqlDetails["schema"] : "hormones",
+			isset($mysqlDetails["hostname"]) ? $mysqlDetails["port"] : 3306
+		);
 	}
 }
