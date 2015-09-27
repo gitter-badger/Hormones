@@ -16,16 +16,14 @@
 namespace Hormones\Lymph;
 
 use Hormones\HormonesPlugin;
-use mysqli;
-use pocketmine\scheduler\AsyncTask;
+use Hormones\HormonesQueryAsyncTask;
 use pocketmine\Server;
 
 /**
  * Used for exchanging tissue status with the Heart
  */
-class Lymph extends AsyncTask{
-	/** @var array */
-	private $details;
+class Lymph extends HormonesQueryAsyncTask{
+	public $queryFinished = false;
 	/** @var int */
 	private $organFlag;
 	/** @var string */
@@ -33,7 +31,7 @@ class Lymph extends AsyncTask{
 	/** @var int */
 	private $maxPlayers, $playersCnt;
 	public function __construct(HormonesPlugin $main){
-		$this->details = $main->getMysqlDetails();
+		parent::__construct($main->getMysqlDetails());
 		$this->organFlag = 1 << $main->getOrgan();
 		$this->serverID = $main->getServerID();
 		$this->maxPlayers = $main->getMaxPlayerCount();
@@ -42,7 +40,7 @@ class Lymph extends AsyncTask{
 	public function onRun(){
 		$db = $this->getDb();
 		$db->query("UPDATE tissues SET laston=unix_timestamp(), usedslots=$this->playersCnt WHERE id='{$db->escape_string($this->serverID)}'");
-		$result = $db->query("SELECT usedslots, maxslots, organ, ip, port FROM tissues WHERE unix_timestamp()-laston < 5");
+		$mResult = $db->query("SELECT usedslots, maxslots, organ, ip, port FROM tissues WHERE unix_timestamp()-laston < 5");
 		$organTissues = 0;
 		$organUsedSlots = 0;
 		$organMaxSlots = 0;
@@ -52,7 +50,7 @@ class Lymph extends AsyncTask{
 		$altIp = null;
 		$altPort = null;
 		$maxAvailable = 0;
-		while(is_array($row = $result->fetch_assoc())){
+		while(is_array($row = $mResult->fetch_assoc())){
 			$totalTissues++;
 			$totalUsedSlots += (int) $row["usedslots"];
 			$totalMaxSlots += (int) $row["maxslots"];
@@ -68,6 +66,8 @@ class Lymph extends AsyncTask{
 				}
 			}
 		}
+		$mResult->close();
+		$this->queryFinished = true;
 		$result = new LymphResult;
 		$result->organTissues = $organTissues;
 		$result->organUsedSlots = $organUsedSlots;
@@ -78,17 +78,6 @@ class Lymph extends AsyncTask{
 		$result->altIp = $altIp;
 		$result->altPort = $altPort;
 		$this->setResult($result);
-	}
-	/**
-	 * @return mysqli
-	 */
-	public function getDb(){
-		if(($db = $this->getFromThreadStore(HormonesPlugin::HORMONES_DB)) instanceof mysqli){
-			return $db;
-		}
-		$db = HormonesPlugin::getMysqli($this->details);
-		$this->saveToThreadStore(HormonesPlugin::HORMONES_DB, $db);
-		return $db;
 	}
 	public function onCompletion(Server $server){
 		$main = HormonesPlugin::getInstance($server);

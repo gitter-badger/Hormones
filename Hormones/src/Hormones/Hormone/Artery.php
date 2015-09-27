@@ -13,23 +13,21 @@
  * @author PEMapModder
  */
 
-namespace Hormones\Lymph;
+namespace Hormones\Hormone;
 
 use Hormones\HormonesPlugin;
 use pocketmine\scheduler\PluginTask;
 
-/**
- * Responsible for creating new Lymph to the heart
- */
-class LymphVessel extends PluginTask{
-	/** @var Lymph */
-	private $lastLymph = null;
+class Artery extends PluginTask{
+	/** @var Blood|null */
+	private $lastArtery;
 	public function onRun($currentTick){
-		if($this->lastLymph !== null and !$this->lastLymph->queryFinished){
+		if($this->lastArtery !== null and !$this->lastArtery->queryFinished){
 			return;
 		}
-		/** @var HormonesPlugin $owner */ // ASSERTION!!!
+		/** @var HormonesPlugin $owner */ // ASSERTION!
 		$owner = $this->getOwner();
-		$owner->getServer()->getScheduler()->scheduleAsyncTask($this->lastLymph = new Lymph($owner));
+		$this->lastArtery = new Blood($owner);
+		$owner->getServer()->getScheduler()->scheduleAsyncTask($this->lastArtery);
 	}
 }

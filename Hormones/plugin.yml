@@ -4,6 +4,7 @@ version: 1.0.0-SNAPSHOT
 api: [2.0.0]
 main: Hormones\HormonesPlugin
 description: An advanced plugin designed for networks with multiple servers
+depend: [FastTransfer]
 softdepend: [SimpleAuth]
 author: LegendsOfMCPE Team
 authors: [PEMapModder]

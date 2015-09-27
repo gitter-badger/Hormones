@@ -15,15 +15,23 @@
 
 namespace Hormones;
 
+use Hormones\Hormone\Artery;
+use Hormones\Hormone\Hormone;
 use Hormones\Lymph\LymphResult;
 use Hormones\Lymph\LymphVessel;
 use mysqli;
 use Phar;
+use pocketmine\Player;
 use pocketmine\plugin\PluginBase;
 use pocketmine\Server;
+use shoghicp\FastTransfer\FastTransfer;
 
 class HormonesPlugin extends PluginBase{
 	const HORMONES_DB = "hormones.db";
+	/** @var FastTransfer */
+	private $fastTransfer;
+	/** @var \ReflectionMethod[] */
+	private $hormoneTypes = [];
 	/** @var array */
 	private $mysqlDetails;
 	/** @var int */
@@ -34,8 +42,8 @@ class HormonesPlugin extends PluginBase{
 	private $serverID;
 	/** @var int */
 	private $maxPlayerCnt;
-	/** @var LymphResult */
-	private $lymphResult;
+	/** @var LymphResult|null */
+	private $lymphResult = null;
 	/**
 	 * @internal
 	 */
@@ -49,6 +57,10 @@ class HormonesPlugin extends PluginBase{
 	 * @internal
 	 */
 	public function onEnable(){
+		$this->fastTransfer = $this->getServer()->getPluginManager()->getPlugin("FastTransfer");
+		if(!($this->fastTransfer instanceof FastTransfer)){
+			throw new \UnexpectedValueException("FastTransfer plugin is invalid");
+		}
 		$this->getLogger()->debug("Loading config...");
 		$this->saveDefaultConfig();
 		$this->mysqlDetails = $this->getConfig()->get("mysql", [
@@ -111,6 +123,7 @@ class HormonesPlugin extends PluginBase{
 		$conn->query("INSERT INTO tissues (id, organ, laston, usedslots, maxslots) VALUES ('{$conn->escape_string($this->serverID)}', 1 << $this->organ, unix_timestamp(), $playerCnt, $this->maxPlayerCnt)");
 
 		$this->getServer()->getScheduler()->scheduleRepeatingTask(new LymphVessel($this), 1);
+		$this->getServer()->getScheduler()->scheduleRepeatingTask(new Artery($this), 1);
 
 		$this->getLogger()->info("Startup completed.");
 	}
@@ -125,6 +138,7 @@ class HormonesPlugin extends PluginBase{
 			$db->close();
 		}
 	}
+
 	/**
 	 * @param array $mysqlDetails
 	 * @return mysqli
@@ -169,7 +183,10 @@ class HormonesPlugin extends PluginBase{
 		return $this->serverID;
 	}
 	public function getLastLymphResult(){
-		return $this->lymphResult;
+		if($this->lymphResult !== null){
+			return $this->lymphResult;
+		}
+		return new LymphResult;
 	}
 	/**
 	 * @param LymphResult $result
@@ -179,10 +196,37 @@ class HormonesPlugin extends PluginBase{
 		$this->lymphResult = $result;
 	}
 	/**
+	 * @param int $class
+	 * @throws \ClassNotFoundException|\ClassCastException|\InvalidStateException|\OverflowException
+	 */
+	public function registerHormoneType($class){
+		try{
+			$refClass = new \ReflectionClass($class);
+		}catch(\ReflectionException $e){
+			throw new \ClassNotFoundException("Unknown class '$class'");
+		}
+		if(!$refClass->isSubclassOf(Hormone::class)){
+			throw new \ClassCastException("$class must extend " . Hormone::class);
+		}
+		$constructor = $refClass->getConstructor();
+		if(!$constructor->isPublic()){
+			throw new \InvalidStateException("$class::__construct must be public");
+		}
+		$shortName = $refClass->getShortName();
+		if(strlen($shortName) > 63){
+			throw new \OverflowException("Class name $shortName is too long; hormone type names must not exceed 63 characters.");
+		}
+		$this->hormoneTypes[$shortName] = $constructor;
+	}
+	/**
 	 * @param Server $server
 	 * @return HormonesPlugin|null
 	 */
 	public static function getInstance(Server $server){
 		return $server->getPluginManager()->getPlugin("Hormones");
+	}
+
+	public function transferPlayer(Player $player, $ip, $port, $msg){
+		$this->fastTransfer->transferPlayer($player, $ip, $port, $msg);
 	}
 }
