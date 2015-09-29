@@ -15,6 +15,61 @@
 
 namespace Hormones\Hormone;
 
-class Hormone{
-
+abstract class Hormone{
+	/** @var int */
+	private $receptors;
+	/** @var int */
+	private $creationTime;
+	/** @var mixed */
+	private $data;
+	/** @var string[] */
+	private $tags;
+	/** @var int|null */
+	private $id;
+	public function __construct($receptors, $creationTime, $data, $tags = [], $id = null){
+		$this->receptors = $receptors;
+		$this->creationTime = $creationTime;
+		$this->data = $data;
+		$this->tags = $tags;
+		$this->id = $id;
+	}
+	public static function getTypeName() : string{
+		return (new \ReflectionClass(static::class))->getShortName();
+	}
+	/**
+	 * @return int
+	 */
+	public function getReceptors(){
+		return $this->receptors;
+	}
+	/**
+	 * @return int
+	 */
+	public function getCreationTime(){
+		return $this->creationTime;
+	}
+	/**
+	 * @return mixed
+	 */
+	public function getData(){
+		return $this->data;
+	}
+	/**
+	 * @return \string[]
+	 */
+	public function getTags(){
+		return $this->tags;
+	}
+	/**
+	 * @return int|null
+	 */
+	public function getId(){
+		return $this->id;
+	}
+	/**
+	 * @param int|null $id
+	 */
+	public function setId($id){
+		$this->id = $id;
+	}
 }

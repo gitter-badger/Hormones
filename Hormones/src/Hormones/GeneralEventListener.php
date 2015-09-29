@@ -50,7 +50,7 @@ class GeneralEventListener implements Listener{
 	/**
 	 * @return HormonesPlugin
 	 */
-	public function getMain(){
+	public function getMain() : HormonesPlugin{
 		return $this->main;
 	}
 }

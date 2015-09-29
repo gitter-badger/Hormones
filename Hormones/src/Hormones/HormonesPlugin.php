@@ -24,10 +24,13 @@ use Phar;
 use pocketmine\Player;
 use pocketmine\plugin\PluginBase;
 use pocketmine\Server;
+use RuntimeException;
 use shoghicp\FastTransfer\FastTransfer;
+use WeakRef;
 
 class HormonesPlugin extends PluginBase{
 	const HORMONES_DB = "hormones.db";
+
 	/** @var FastTransfer */
 	private $fastTransfer;
 	/** @var \ReflectionMethod[] */
@@ -44,6 +47,13 @@ class HormonesPlugin extends PluginBase{
 	private $maxPlayerCnt;
 	/** @var LymphResult|null */
 	private $lymphResult = null;
+	/** @var object[] */
+	private $objStore = [];
+	/** @var WeakRef[] */
+	private $weakObjStore = [];
+	/** @var int */
+	private $nextObjId = 1;
+
 	/**
 	 * @internal
 	 */
@@ -143,7 +153,7 @@ class HormonesPlugin extends PluginBase{
 	 * @param array $mysqlDetails
 	 * @return mysqli
 	 */
-	public static function getMysqli(array $mysqlDetails){
+	public static function getMysqli(array $mysqlDetails) : mysqli{
 		return new mysqli(
 			isset($mysqlDetails["hostname"]) ? $mysqlDetails["hostname"] : "127.0.0.1",
 			isset($mysqlDetails["hostname"]) ? $mysqlDetails["username"] : "root",
@@ -155,33 +165,36 @@ class HormonesPlugin extends PluginBase{
 	/**
 	 * @return array
 	 */
-	public function getMysqlDetails(){
+	public function getMysqlDetails() : array{
 		return $this->mysqlDetails;
 	}
 	/**
 	 * @return int
 	 */
-	public function getOrgan(){
+	public function getOrgan() : int{
 		return $this->organ;
 	}
 	/**
 	 * @return string
 	 */
-	public function getOrganName(){
+	public function getOrganName() : string{
 		return $this->organName;
 	}
 	/**
 	 * @return int
 	 */
-	public function getMaxPlayerCount(){
+	public function getMaxPlayerCount() : int{
 		return $this->maxPlayerCnt;
 	}
 	/**
 	 * @return string
 	 */
-	public function getServerID(){
+	public function getServerID() : string{
 		return $this->serverID;
 	}
+	/**
+	 * @return LymphResult|null
+	 */
 	public function getLastLymphResult(){
 		if($this->lymphResult !== null){
 			return $this->lymphResult;
@@ -196,10 +209,10 @@ class HormonesPlugin extends PluginBase{
 		$this->lymphResult = $result;
 	}
 	/**
-	 * @param int $class
+	 * @param string $class
 	 * @throws \ClassNotFoundException|\ClassCastException|\InvalidStateException|\OverflowException
 	 */
-	public function registerHormoneType($class){
+	public function registerHormoneType(string $class){
 		try{
 			$refClass = new \ReflectionClass($class);
 		}catch(\ReflectionException $e){
@@ -222,11 +235,47 @@ class HormonesPlugin extends PluginBase{
 	 * @param Server $server
 	 * @return HormonesPlugin|null
 	 */
-	public static function getInstance(Server $server){
+	public static function getInstance(Server $server) : HormonesPlugin{
 		return $server->getPluginManager()->getPlugin("Hormones");
 	}
 
-	public function transferPlayer(Player $player, $ip, $port, $msg){
+	public function transferPlayer(Player $player, string $ip, int $port, string $msg){
 		$this->fastTransfer->transferPlayer($player, $ip, $port, $msg);
+	}
+	/**
+	 * WARNING: Do NOT use the $weak option until PocketMine is shipped with a stable version of WeakRef with PHP 7!
+	 * @param object $object $object
+	 * @param bool $weak default false
+	 * @return int
+	 */
+	public function storeObject(object $object, bool $weak = false) : int{
+		$ret = $this->nextObjId++;
+		if(!$weak){
+			$this->objStore[$ret] = $object;
+		}else{
+			$this->weakObjStore[$ret] = new WeakRef($weak);
+		}
+		return $ret;
+	}
+	/**
+	 * @param int $objId
+	 * @return object
+	 * @throws RuntimeException
+	 */
+	public function fetchObject(int $objId) : object{
+		if(isset($this->objStore[$objId])){
+			$weakRef = $this->objStore[$objId];
+			unset($this->objStore[$objId]);
+			return $weakRef;
+		}
+		if(isset($this->weakObjStore[$objId])){
+			$weakRef = $this->weakObjStore[$objId];
+			unset($this->weakObjStore[$objId]);
+			return $weakRef->valid() ? $weakRef->get() : null;
+		}
+		if($objId >= $this->nextObjId){
+			throw new RuntimeException("Unknown object ID $objId");
+		}
+		throw new RuntimeException("Object is already released from Hormones Global Object Storage");
 	}
 }

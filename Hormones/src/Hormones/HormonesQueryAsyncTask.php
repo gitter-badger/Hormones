@@ -26,12 +26,15 @@ abstract class HormonesQueryAsyncTask extends AsyncTask{
 	/**
 	 * @return mysqli
 	 */
-	public function getDb(){
+	public function getDb() : mysqli{
 		if(($db = $this->getFromThreadStore(HormonesPlugin::HORMONES_DB)) instanceof mysqli){
 			return $db;
 		}
 		$db = HormonesPlugin::getMysqli($this->details);
 		$this->saveToThreadStore(HormonesPlugin::HORMONES_DB, $db);
 		return $db;
+	}
+	protected function escape(string $string) : string{
+		return "'{$this->getDb()->escape_string($string)}'";
 	}
 }
