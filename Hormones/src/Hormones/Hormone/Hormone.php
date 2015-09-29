@@ -39,13 +39,13 @@ abstract class Hormone{
 	/**
 	 * @return int
 	 */
-	public function getReceptors(){
+	public function getReceptors() : int{
 		return $this->receptors;
 	}
 	/**
 	 * @return int
 	 */
-	public function getCreationTime(){
+	public function getCreationTime() : int{
 		return $this->creationTime;
 	}
 	/**
@@ -57,7 +57,7 @@ abstract class Hormone{
 	/**
 	 * @return \string[]
 	 */
-	public function getTags(){
+	public function getTags() : array{
 		return $this->tags;
 	}
 	/**
@@ -67,9 +67,9 @@ abstract class Hormone{
 		return $this->id;
 	}
 	/**
-	 * @param int|null $id
+	 * @param int $id
 	 */
-	public function setId($id){
+	public function setId(int $id){
 		$this->id = $id;
 	}
 }
